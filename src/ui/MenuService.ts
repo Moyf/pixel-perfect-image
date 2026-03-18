@@ -150,19 +150,22 @@ export class MenuService {
     async handleContextMenu(ev: MouseEvent | TouchEvent) {
         // For touch events, ignore multi-touch to prevent triggering during pinch zoom
         if ('touches' in ev && ev.touches.length > 1) return;
-        
+
         const img = findImageElement(ev.target);
         if (!img) return;
 
-        // Resolve the markdown view that owns this image element (supports multiple panes).
+        // IMPORTANT: Stop immediate propagation and prevent default
+        // This completely replaces Obsidian's native menu with PPI's menu
+        ev.stopImmediatePropagation();
+        ev.preventDefault();
+
+        // Resolve markdown view that owns this image element (supports multiple panes).
         const markdownView =
             findMarkdownViewForElement(this.plugin.app, img)
             ?? this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
         if (!markdownView) return;
 
-        // Prevent default context menu
-        ev.preventDefault();
-
+        // Always use new Menu() to show only PPI's custom menu items
         const menu = new Menu();
         
         // Check if this is a remote image
@@ -214,12 +217,16 @@ export class MenuService {
             }
         }
 
-        // Position menu at event coordinates
-        const position = {
-            x: ev instanceof MouseEvent ? ev.pageX : ev.touches[0].pageX,
-            y: ev instanceof MouseEvent ? ev.pageY : ev.touches[0].pageY
-        };
-        menu.showAtPosition(position);
+        // Show menu - use showAtMouseEvent for desktop events, showAtPosition for touch
+        if (ev instanceof MouseEvent) {
+            menu.showAtMouseEvent(ev);
+        } else {
+            const position = {
+                x: ev.touches[0].pageX,
+                y: ev.touches[0].pageY
+            };
+            menu.showAtPosition(position);
+        }
     }
 
     /**
